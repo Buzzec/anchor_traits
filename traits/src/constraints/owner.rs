@@ -8,40 +8,40 @@ use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Address(pub Pubkey);
-impl Constraint for Address {
-    type Builder = AddressBuilder<EmptyField>;
+pub struct Owner(pub Pubkey);
+impl Constraint for Owner {
+    type Builder = OwnerBuilder<EmptyField>;
 }
 
-pub struct AddressBuilder<A>(pub A);
-pub struct AddressField0;
-impl<A> Builder for AddressBuilder<A> {
-    type Output = Address;
+pub struct OwnerBuilder<A>(pub A);
+pub struct OwnerField0;
+impl<A> Builder for OwnerBuilder<A> {
+    type Output = Owner;
 }
-impl BuilderStart for AddressBuilder<EmptyField> {
+impl BuilderStart for OwnerBuilder<EmptyField> {
     #[inline]
     fn new() -> Self {
-        AddressBuilder(EmptyField)
+        OwnerBuilder(EmptyField)
     }
 }
-impl BuilderField<AddressField0> for AddressBuilder<EmptyField> {
+impl BuilderField<OwnerField0> for OwnerBuilder<EmptyField> {
     type FieldType = Pubkey;
-    type AfterSet = AddressBuilder<Pubkey>;
+    type AfterSet = OwnerBuilder<Pubkey>;
 
     fn set_field(self, field: Self::FieldType) -> Self::AfterSet {
-        AddressBuilder(field)
+        OwnerBuilder(field)
     }
 }
-impl BuilderFinish for AddressBuilder<Pubkey> {
+impl BuilderFinish for OwnerBuilder<Pubkey> {
     fn finish(self) -> Self::Output {
-        Address(self.0)
+        Owner(self.0)
     }
 }
 
-impl SupportsConstraint<Address> for AccountInfo {
+impl SupportsConstraint<Owner> for AccountInfo {
     fn late_validation(
         &mut self,
-        constraint: &mut Address,
+        constraint: &mut Owner,
         _context: &mut AccountsContext,
     ) -> AnchorResult {
         if self.key() == &constraint.0 {

@@ -25,6 +25,11 @@ pub trait SingleAccount: Accounts {
     fn key(&self) -> &Pubkey {
         self.account_info_ref().key()
     }
+
+    #[inline]
+    fn owner(&self) -> &Pubkey {
+        self.account_info_ref().owner()
+    }
 }
 
 pub trait DecodeAccounts<A>: Accounts {
