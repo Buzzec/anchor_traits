@@ -1,0 +1,33 @@
+[package]
+name = "traits"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["borsh"]
+bincode = ["dep:bincode"]
+borsh = ["dep:borsh"]
+serde = ["dep:serde"]
+
+[dependencies]
+proc.workspace = true
+
+# Public required dependencies, requires a breaking change to update
+base64.workspace = true
+bytemuck.workspace = true
+pinocchio.workspace = true
+pinocchio-system.workspace = true
+
+# Optional Dependencies, requires a breaking change to update.
+# Can use feature flags to update
+serde = { workspace = true, optional = true }
+borsh = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+
+# Internal Dependencies
+# not in public api, so not a breaking change to update
+array-init.workspace = true
+derive-where.workspace = true
+derive_more.workspace = true
+thiserror.workspace = true
