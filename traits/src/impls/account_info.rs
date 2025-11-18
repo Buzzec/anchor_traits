@@ -1,14 +1,15 @@
 use crate::error::AnchorResult;
 use crate::traits::account::{
-    Accounts, DecodeAccounts, ToAccountInfos, ToAccountMetas, ValidateAccounts,
+    Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
+use crate::traits::maybe_bool::Unknown;
 use crate::traits::AccountsContext;
 use core::iter::once;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::instruction::AccountMeta;
 use pinocchio::program_error::ProgramError;
 
-impl ToAccountMetas for AccountInfo {
+impl Accounts for AccountInfo {
     #[inline]
     fn to_account_metas(&self, is_signer: Option<bool>) -> impl Iterator<Item = AccountMeta<'_>> {
         once(AccountMeta::new(
@@ -17,14 +18,21 @@ impl ToAccountMetas for AccountInfo {
             self.is_writable(),
         ))
     }
-}
-impl ToAccountInfos for AccountInfo {
+
     #[inline]
     fn to_account_infos(&self) -> impl Iterator<Item = AccountInfo> {
         once(*self)
     }
 }
-impl Accounts for AccountInfo {}
+unsafe impl SingleAccount for AccountInfo {
+    type Mutable = Unknown;
+    type CanSign = Unknown;
+
+    #[inline]
+    fn account_info_ref(&self) -> &AccountInfo {
+        self
+    }
+}
 impl DecodeAccounts<()> for AccountInfo {
     fn try_accounts(
         _accounts_context: &mut AccountsContext,
@@ -36,6 +44,11 @@ impl DecodeAccounts<()> for AccountInfo {
 }
 impl ValidateAccounts<()> for AccountInfo {
     fn validate(&mut self, _accounts_context: &mut AccountsContext, _arg: ()) -> AnchorResult {
+        Ok(())
+    }
+}
+impl CleanupAccounts<()> for AccountInfo {
+    fn cleanup(&mut self, _accounts_context: &mut AccountsContext, _arg: ()) -> AnchorResult {
         Ok(())
     }
 }

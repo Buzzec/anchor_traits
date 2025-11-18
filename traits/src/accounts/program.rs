@@ -1,12 +1,13 @@
 use crate::error::AnchorResult;
 use crate::traits::account::{
-    Accounts, DecodeAccounts, SingleAccount, ToAccountInfos, ToAccountMetas, ValidateAccounts,
+    Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
 use crate::traits::constraint::{Constraint, SupportsConstraint};
 use crate::traits::program::ProgramId;
 use crate::traits::AccountsContext;
 use core::fmt::Debug;
 use core::marker::PhantomData;
+use derive_more::{Deref, DerefMut};
 use derive_where::derive_where;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::instruction::AccountMeta;
@@ -15,7 +16,10 @@ use pinocchio::program_error::ProgramError;
 #[derive_where(Clone; T: Clone)]
 #[derive_where(Copy; T: Copy)]
 #[derive_where(Debug; T: Debug)]
+#[derive(Deref, DerefMut)]
 pub struct Program<P: ProgramId, T = AccountInfo> {
+    #[deref]
+    #[deref_mut]
     info: T,
     _program: PhantomData<fn() -> P>,
 }
@@ -28,29 +32,27 @@ impl<P: ProgramId, T> Program<P, T> {
         }
     }
 }
-impl<P: ProgramId, T> ToAccountMetas for Program<P, T>
+impl<P: ProgramId, T> Accounts for Program<P, T>
 where
-    T: ToAccountMetas,
+    T: Accounts,
 {
     #[inline]
     fn to_account_metas(&self, is_signer: Option<bool>) -> impl Iterator<Item = AccountMeta<'_>> {
         T::to_account_metas(&self.info, is_signer)
     }
-}
-impl<P: ProgramId, T> ToAccountInfos for Program<P, T>
-where
-    T: ToAccountInfos,
-{
+
     #[inline]
     fn to_account_infos(&self) -> impl Iterator<Item = AccountInfo> {
         T::to_account_infos(&self.info)
     }
 }
-impl<P: ProgramId, T> Accounts for Program<P, T> where T: Accounts {}
-impl<P: ProgramId, T> SingleAccount for Program<P, T>
+unsafe impl<P: ProgramId, T> SingleAccount for Program<P, T>
 where
     T: SingleAccount,
 {
+    type Mutable = T::Mutable;
+    type CanSign = T::CanSign;
+
     #[inline]
     fn account_info_ref(&self) -> &AccountInfo {
         T::account_info_ref(&self.info)
@@ -84,6 +86,15 @@ where
         } else {
             Err(ProgramError::IncorrectProgramId)
         }
+    }
+}
+impl<P: ProgramId, T, A> CleanupAccounts<A> for Program<P, T>
+where
+    T: CleanupAccounts<A>,
+{
+    #[inline]
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: A) -> AnchorResult {
+        T::cleanup(&mut self.info, accounts_context, arg)
     }
 }
 impl<P: ProgramId, T, C> SupportsConstraint<C> for Program<P, T>

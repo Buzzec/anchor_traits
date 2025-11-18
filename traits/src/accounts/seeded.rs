@@ -1,10 +1,13 @@
 use crate::error::AnchorResult;
 use crate::traits::account::{
-    Accounts, DecodeAccounts, SingleAccount, ToAccountInfos, ToAccountMetas, ValidateAccounts,
+    Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
-use crate::traits::seeds::{SeedProgram, SeededAccount, Seeds};
+use crate::traits::maybe_bool::{MaybeBool, Or};
+use crate::traits::program::{CurrentProgram, GetProgramId};
+use crate::traits::seeds::{SeededAccount, Seeds};
 use crate::traits::AccountsContext;
 use core::marker::PhantomData;
+use core::ops::BitOr;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::instruction::AccountMeta;
 use pinocchio::program_error::ProgramError;
@@ -25,40 +28,36 @@ impl<S> SeedsWithBump<S> {
     }
 }
 
-pub struct CurrentProgram;
-impl SeedProgram for CurrentProgram {
-    fn program_id<'a>(accounts_context: &AccountsContext<'a>) -> &'a Pubkey {
-        accounts_context.current_program_id
-    }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct Seeded<T, S = <T as SeededAccount>::Seeds, P = CurrentProgram> {
     pub account: T,
     pub seeds: Option<SeedsWithBump<S>>,
     pub _phantom_program: PhantomData<fn() -> P>,
 }
-impl<T, S, P> ToAccountMetas for Seeded<T, S, P>
+impl<T, S, P> Accounts for Seeded<T, S, P>
 where
-    T: ToAccountMetas,
+    T: Accounts,
 {
+    #[inline]
     fn to_account_metas(&self, is_signer: Option<bool>) -> impl Iterator<Item = AccountMeta<'_>> {
         T::to_account_metas(&self.account, is_signer)
     }
-}
-impl<T, S, P> ToAccountInfos for Seeded<T, S, P>
-where
-    T: ToAccountInfos,
-{
+
+    #[inline]
     fn to_account_infos(&self) -> impl Iterator<Item = AccountInfo> {
         T::to_account_infos(&self.account)
     }
 }
-impl<T, S, P> Accounts for Seeded<T, S, P> where T: Accounts {}
-impl<T, S, P> SingleAccount for Seeded<T, S, P>
+unsafe impl<T, S, P> SingleAccount for Seeded<T, S, P>
 where
     T: SingleAccount,
+    P: GetProgramId,
+    P::IsCurrentProgram: BitOr<T::CanSign>,
+    Or<P::IsCurrentProgram, T::CanSign>: MaybeBool,
 {
+    type Mutable = T::Mutable;
+    type CanSign = Or<P::IsCurrentProgram, T::CanSign>;
+
     #[inline]
     fn account_info_ref(&self) -> &AccountInfo {
         T::account_info_ref(&self.account)
@@ -89,7 +88,9 @@ impl<T, S, P> ValidateAccounts<S> for Seeded<T, S, P>
 where
     T: SingleAccount + ValidateAccounts<()>,
     S: Seeds,
-    P: SeedProgram,
+    P: GetProgramId,
+    P::IsCurrentProgram: BitOr<T::CanSign>,
+    Or<P::IsCurrentProgram, T::CanSign>: MaybeBool,
 {
     fn validate(&mut self, accounts_context: &mut AccountsContext, arg: S) -> AnchorResult {
         Self::validate(self, accounts_context, (arg, ()))
@@ -99,7 +100,9 @@ impl<T, S, P> ValidateAccounts<SeedsWithBump<S>> for Seeded<T, S, P>
 where
     T: SingleAccount + ValidateAccounts<()>,
     S: Seeds,
-    P: SeedProgram,
+    P: GetProgramId,
+    P::IsCurrentProgram: BitOr<T::CanSign>,
+    Or<P::IsCurrentProgram, T::CanSign>: MaybeBool,
 {
     fn validate(
         &mut self,
@@ -113,7 +116,9 @@ impl<T, S, P, A> ValidateAccounts<(S, A)> for Seeded<T, S, P>
 where
     T: SingleAccount + ValidateAccounts<A>,
     S: Seeds,
-    P: SeedProgram,
+    P: GetProgramId,
+    P::IsCurrentProgram: BitOr<T::CanSign>,
+    Or<P::IsCurrentProgram, T::CanSign>: MaybeBool,
 {
     fn validate(&mut self, accounts_context: &mut AccountsContext, arg: (S, A)) -> AnchorResult {
         let (found_key, bump) = arg.0.find_program_address(P::program_id(accounts_context));
@@ -131,7 +136,9 @@ impl<T, S, P, A> ValidateAccounts<(SeedsWithBump<S>, A)> for Seeded<T, S, P>
 where
     T: SingleAccount + ValidateAccounts<A>,
     S: Seeds,
-    P: SeedProgram,
+    P: GetProgramId,
+    P::IsCurrentProgram: BitOr<T::CanSign>,
+    Or<P::IsCurrentProgram, T::CanSign>: MaybeBool,
 {
     fn validate(
         &mut self,
@@ -149,5 +156,27 @@ where
         } else {
             Err(ProgramError::InvalidSeeds)
         }
+    }
+}
+impl<T, S, P> ValidateAccounts<()> for Seeded<T, S, P>
+where
+    T: SingleAccount + ValidateAccounts<()>,
+    S: Seeds + Default,
+    P: GetProgramId,
+    P::IsCurrentProgram: BitOr<T::CanSign>,
+    Or<P::IsCurrentProgram, T::CanSign>: MaybeBool,
+{
+    #[inline]
+    fn validate(&mut self, accounts_context: &mut AccountsContext, _arg: ()) -> AnchorResult {
+        Self::validate(self, accounts_context, S::default())
+    }
+}
+impl<T, S, P> CleanupAccounts<()> for Seeded<T, S, P>
+where
+    T: CleanupAccounts<()>,
+{
+    #[inline]
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: ()) -> AnchorResult {
+        T::cleanup(&mut self.account, accounts_context, arg)
     }
 }

@@ -1,5 +1,3 @@
-use crate::traits::program::ProgramId;
-use crate::traits::AccountsContext;
 use alloc::vec::Vec;
 use pinocchio::pubkey::{find_program_address, Pubkey};
 
@@ -13,15 +11,4 @@ pub trait Seeds {
 }
 pub trait SeededAccount {
     type Seeds: Seeds;
-}
-pub trait SeedProgram {
-    fn program_id<'a>(accounts_context: &AccountsContext<'a>) -> &'a Pubkey;
-}
-impl<P> SeedProgram for P
-where
-    P: ProgramId,
-{
-    fn program_id<'a>(_accounts_context: &AccountsContext<'a>) -> &'a Pubkey {
-        &Self::ID
-    }
 }

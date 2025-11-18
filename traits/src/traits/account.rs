@@ -1,20 +1,23 @@
 use crate::error::AnchorResult;
+use crate::traits::maybe_bool::MaybeBool;
 use crate::traits::AccountsContext;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::instruction::AccountMeta;
 use pinocchio::pubkey::Pubkey;
 
-pub trait ToAccountMetas {
+pub trait Accounts {
     fn to_account_metas(&self, is_signer: Option<bool>) -> impl Iterator<Item = AccountMeta<'_>>;
-}
 
-pub trait ToAccountInfos {
     fn to_account_infos(&self) -> impl Iterator<Item = AccountInfo>;
 }
 
-pub trait Accounts: Sized + ToAccountMetas + ToAccountInfos {}
+/// # Safety
+/// `[SingleAccount::Mutable]` must be correct so optimizations can take advantage of
+/// mutability/immutability of the data.
+pub unsafe trait SingleAccount: Accounts {
+    type Mutable: MaybeBool;
+    type CanSign: MaybeBool;
 
-pub trait SingleAccount: Accounts {
     fn account_info_ref(&self) -> &AccountInfo;
     #[inline]
     fn account_info(&self) -> AccountInfo {
@@ -32,7 +35,8 @@ pub trait SingleAccount: Accounts {
     }
 }
 
-pub trait DecodeAccounts<A>: Accounts {
+pub trait DecodeAccounts<A>: Sized + Accounts {
+    #[track_caller]
     fn try_accounts(
         accounts_context: &mut AccountsContext,
         accounts: &mut impl Iterator<Item = AccountInfo>,
@@ -45,5 +49,11 @@ pub trait DecodeAccounts<A>: Accounts {
 }
 
 pub trait ValidateAccounts<A>: Accounts {
+    #[track_caller]
     fn validate(&mut self, accounts_context: &mut AccountsContext, arg: A) -> AnchorResult;
+}
+
+pub trait CleanupAccounts<A>: Accounts {
+    #[track_caller]
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: A) -> AnchorResult;
 }

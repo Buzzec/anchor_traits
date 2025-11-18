@@ -1,7 +1,5 @@
 use crate::error::AnchorResult;
-use crate::traits::account::{
-    Accounts, DecodeAccounts, ToAccountInfos, ToAccountMetas, ValidateAccounts,
-};
+use crate::traits::account::{Accounts, CleanupAccounts, DecodeAccounts, ValidateAccounts};
 use crate::traits::constraint::{Constraint, SupportsConstraint};
 use crate::traits::AccountsContext;
 use alloc::vec::Vec;
@@ -11,25 +9,19 @@ use pinocchio::instruction::AccountMeta;
 
 #[derive(Clone, Debug, Deref, DerefMut)]
 pub struct Rest<T>(pub Vec<T>);
-
-impl<T> ToAccountInfos for Rest<T>
+impl<T> Accounts for Rest<T>
 where
-    T: ToAccountInfos,
+    T: Accounts,
 {
     fn to_account_infos(&self) -> impl Iterator<Item = AccountInfo> {
         self.iter().flat_map(T::to_account_infos)
     }
-}
-impl<T> ToAccountMetas for Rest<T>
-where
-    T: ToAccountMetas,
-{
+
     fn to_account_metas(&self, is_signer: Option<bool>) -> impl Iterator<Item = AccountMeta<'_>> {
         self.iter()
             .flat_map(move |a| T::to_account_metas(a, is_signer))
     }
 }
-impl<T> Accounts for Rest<T> where T: Accounts {}
 impl<T, A> DecodeAccounts<A> for Rest<T>
 where
     T: DecodeAccounts<A>,
@@ -62,6 +54,18 @@ where
     fn validate(&mut self, accounts_context: &mut AccountsContext, arg: A) -> AnchorResult {
         for t in self.iter_mut() {
             T::validate(t, accounts_context, arg.clone())?;
+        }
+        Ok(())
+    }
+}
+impl<T, A> CleanupAccounts<A> for Rest<T>
+where
+    T: CleanupAccounts<A>,
+    A: Clone,
+{
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: A) -> AnchorResult {
+        for t in self.iter_mut() {
+            T::cleanup(t, accounts_context, arg.clone())?;
         }
         Ok(())
     }

@@ -1,7 +1,8 @@
 use crate::error::AnchorResult;
 use crate::traits::account::{
-    Accounts, DecodeAccounts, SingleAccount, ToAccountInfos, ToAccountMetas, ValidateAccounts,
+    Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
+use crate::traits::maybe_bool::True;
 use crate::traits::AccountsContext;
 use derive_more::{Deref, DerefMut};
 use pinocchio::account_info::AccountInfo;
@@ -10,29 +11,27 @@ use pinocchio::program_error::ProgramError;
 
 #[derive(Copy, Clone, Debug, Deref, DerefMut)]
 pub struct Signer<T = AccountInfo>(pub T);
-impl<T> ToAccountMetas for Signer<T>
+impl<T> Accounts for Signer<T>
 where
-    T: ToAccountMetas,
+    T: Accounts,
 {
     #[inline]
     fn to_account_metas(&self, is_signer: Option<bool>) -> impl Iterator<Item = AccountMeta<'_>> {
         T::to_account_metas(&self.0, is_signer)
     }
-}
-impl<T> ToAccountInfos for Signer<T>
-where
-    T: ToAccountInfos,
-{
+
     #[inline]
     fn to_account_infos(&self) -> impl Iterator<Item = AccountInfo> {
         T::to_account_infos(&self.0)
     }
 }
-impl<T> Accounts for Signer<T> where T: Accounts {}
-impl<T> SingleAccount for Signer<T>
+unsafe impl<T> SingleAccount for Signer<T>
 where
     T: SingleAccount,
 {
+    type Mutable = T::Mutable;
+    type CanSign = True;
+
     #[inline]
     fn account_info_ref(&self) -> &AccountInfo {
         T::account_info_ref(&self.0)
@@ -66,5 +65,14 @@ where
         } else {
             Err(ProgramError::MissingRequiredSignature)
         }
+    }
+}
+impl<T, A> CleanupAccounts<A> for Signer<T>
+where
+    T: CleanupAccounts<A>,
+{
+    #[inline]
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: A) -> AnchorResult {
+        T::cleanup(&mut self.0, accounts_context, arg)
     }
 }

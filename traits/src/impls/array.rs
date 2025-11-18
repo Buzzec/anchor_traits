@@ -1,6 +1,6 @@
 use crate::error::AnchorResult;
 use crate::traits::account::{
-    Accounts, DecodeAccounts, SingleAccount, ToAccountInfos, ToAccountMetas, ValidateAccounts,
+    Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
 use crate::traits::AccountsContext;
 use crate::util::try_map_array_init;
@@ -8,28 +8,26 @@ use array_init::try_array_init;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::instruction::AccountMeta;
 
-impl<T, const N: usize> ToAccountInfos for [T; N]
+impl<T, const N: usize> Accounts for [T; N]
 where
-    T: ToAccountInfos,
+    T: Accounts,
 {
     fn to_account_infos(&self) -> impl Iterator<Item = AccountInfo> {
         self.iter().flat_map(T::to_account_infos)
     }
-}
-impl<T, const N: usize> ToAccountMetas for [T; N]
-where
-    T: ToAccountMetas,
-{
+
     fn to_account_metas(&self, is_signer: Option<bool>) -> impl Iterator<Item = AccountMeta<'_>> {
         self.iter()
             .flat_map(move |t| T::to_account_metas(t, is_signer))
     }
 }
-impl<T, const N: usize> Accounts for [T; N] where T: Accounts {}
-impl<T> SingleAccount for [T; 1]
+unsafe impl<T> SingleAccount for [T; 1]
 where
     T: SingleAccount,
 {
+    type Mutable = T::Mutable;
+    type CanSign = T::CanSign;
+
     #[inline]
     fn account_info_ref(&self) -> &AccountInfo {
         T::account_info_ref(&self[0])
@@ -128,9 +126,37 @@ where
     T: ValidateAccounts<()>,
 {
     fn validate(&mut self, accounts_context: &mut AccountsContext, arg: ()) -> AnchorResult {
-        for t in self.iter_mut() {
-            T::validate(t, accounts_context, arg)?;
+        Self::validate(self, accounts_context, (arg,))
+    }
+}
+impl<T, const N: usize, A> CleanupAccounts<[A; N]> for [T; N]
+where
+    T: CleanupAccounts<A>,
+{
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: [A; N]) -> AnchorResult {
+        for (t, a) in self.iter_mut().zip(arg) {
+            T::cleanup(t, accounts_context, a)?;
         }
         Ok(())
+    }
+}
+impl<T, const N: usize, A> CleanupAccounts<(A,)> for [T; N]
+where
+    T: CleanupAccounts<A>,
+    A: Clone,
+{
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: (A,)) -> AnchorResult {
+        for t in self.iter_mut() {
+            T::cleanup(t, accounts_context, arg.0.clone())?;
+        }
+        Ok(())
+    }
+}
+impl<T, const N: usize> CleanupAccounts<()> for [T; N]
+where
+    T: CleanupAccounts<()>,
+{
+    fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: ()) -> AnchorResult {
+        Self::cleanup(self, accounts_context, (arg,))
     }
 }
