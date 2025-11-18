@@ -2,7 +2,7 @@ use crate::error::AnchorResult;
 use crate::traits::account::{
     Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
-use crate::traits::constraint::{Constraint, SupportsConstraint};
+use crate::traits::constraint::SupportsConstraint;
 use crate::traits::maybe_bool::True;
 use crate::traits::AccountsContext;
 use derive_more::{Deref, DerefMut};
@@ -102,7 +102,6 @@ where
 impl<T, C, const IS_MUT: bool> SupportsConstraint<C> for Mutability<T, IS_MUT>
 where
     T: SupportsConstraint<C>,
-    C: Constraint,
 {
     fn early_validation(
         &mut self,

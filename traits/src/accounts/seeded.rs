@@ -2,6 +2,7 @@ use crate::error::AnchorResult;
 use crate::traits::account::{
     Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
+use crate::traits::constraint::SupportsConstraint;
 use crate::traits::maybe_bool::{MaybeBool, Or};
 use crate::traits::program::{CurrentProgram, GetProgramId};
 use crate::traits::seeds::{SeededAccount, Seeds};
@@ -178,5 +179,32 @@ where
     #[inline]
     fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: ()) -> AnchorResult {
         T::cleanup(&mut self.account, accounts_context, arg)
+    }
+}
+impl<T, S, P, C> SupportsConstraint<C> for Seeded<T, S, P>
+where
+    T: SupportsConstraint<C>,
+{
+    #[inline]
+    fn early_validation(
+        &mut self,
+        constraint: &mut C,
+        context: &mut AccountsContext,
+    ) -> AnchorResult {
+        T::early_validation(&mut self.account, constraint, context)
+    }
+
+    #[inline]
+    fn late_validation(
+        &mut self,
+        constraint: &mut C,
+        context: &mut AccountsContext,
+    ) -> AnchorResult {
+        T::late_validation(&mut self.account, constraint, context)
+    }
+
+    #[inline]
+    fn cleanup(&mut self, constraint: &mut C, context: &mut AccountsContext) -> AnchorResult {
+        T::cleanup(&mut self.account, constraint, context)
     }
 }

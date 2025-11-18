@@ -1,6 +1,6 @@
 use crate::error::AnchorResult;
 use crate::traits::account::{Accounts, CleanupAccounts, DecodeAccounts, ValidateAccounts};
-use crate::traits::constraint::{Constraint, SupportsConstraint};
+use crate::traits::constraint::SupportsConstraint;
 use crate::traits::AccountsContext;
 use alloc::vec::Vec;
 use derive_more::{Deref, DerefMut};
@@ -73,7 +73,6 @@ where
 impl<T, C> SupportsConstraint<C> for Rest<T>
 where
     T: SupportsConstraint<C>,
-    C: Constraint,
 {
     fn early_validation(
         &mut self,

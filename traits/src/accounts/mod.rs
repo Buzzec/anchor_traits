@@ -1,5 +1,7 @@
 #[cfg(feature = "borsh")]
 pub mod borsh_account;
+#[cfg(feature = "bytemuck")]
+pub mod bytemuck_account;
 pub mod mutable;
 pub mod program;
 pub mod rest;

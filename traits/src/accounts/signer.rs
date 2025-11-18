@@ -2,6 +2,7 @@ use crate::error::AnchorResult;
 use crate::traits::account::{
     Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
+use crate::traits::constraint::SupportsConstraint;
 use crate::traits::maybe_bool::True;
 use crate::traits::AccountsContext;
 use derive_more::{Deref, DerefMut};
@@ -74,5 +75,32 @@ where
     #[inline]
     fn cleanup(&mut self, accounts_context: &mut AccountsContext, arg: A) -> AnchorResult {
         T::cleanup(&mut self.0, accounts_context, arg)
+    }
+}
+impl<T, A> SupportsConstraint<A> for Signer<T>
+where
+    T: SupportsConstraint<A>,
+{
+    #[inline]
+    fn early_validation(
+        &mut self,
+        constraint: &mut A,
+        context: &mut AccountsContext,
+    ) -> AnchorResult {
+        T::early_validation(&mut self.0, constraint, context)
+    }
+
+    #[inline]
+    fn late_validation(
+        &mut self,
+        constraint: &mut A,
+        context: &mut AccountsContext,
+    ) -> AnchorResult {
+        T::late_validation(&mut self.0, constraint, context)
+    }
+
+    #[inline]
+    fn cleanup(&mut self, constraint: &mut A, context: &mut AccountsContext) -> AnchorResult {
+        T::cleanup(&mut self.0, constraint, context)
     }
 }

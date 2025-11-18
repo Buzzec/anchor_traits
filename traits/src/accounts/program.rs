@@ -2,7 +2,7 @@ use crate::error::AnchorResult;
 use crate::traits::account::{
     Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
 };
-use crate::traits::constraint::{Constraint, SupportsConstraint};
+use crate::traits::constraint::SupportsConstraint;
 use crate::traits::program::ProgramId;
 use crate::traits::AccountsContext;
 use core::fmt::Debug;
@@ -100,7 +100,6 @@ where
 impl<P: ProgramId, T, C> SupportsConstraint<C> for Program<P, T>
 where
     T: SupportsConstraint<C>,
-    C: Constraint,
 {
     fn early_validation(
         &mut self,

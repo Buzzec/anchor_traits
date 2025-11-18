@@ -1,6 +1,10 @@
+use crate::accounts::mutable::ReadOnly;
 use crate::error::{AnchorError, AnchorResult};
-use crate::traits::account::{Accounts, CleanupAccounts, DecodeAccounts, SingleAccount};
+use crate::traits::account::{
+    Accounts, CleanupAccounts, DecodeAccounts, SingleAccount, ValidateAccounts,
+};
 use crate::traits::account_data::AccountData;
+use crate::traits::constraint::SupportsConstraint;
 use crate::traits::maybe_bool::{MaybeBool, True};
 use crate::traits::program::{CurrentProgram, GetProgramId};
 use crate::traits::AccountsContext;
@@ -14,7 +18,7 @@ use pinocchio::instruction::AccountMeta;
 
 #[derive_where(Clone; T: Clone, A: Clone)]
 #[derive(Deref)]
-pub struct BorshAccount<T, P = CurrentProgram, A = AccountInfo>
+pub struct BorshAccount<T, A = ReadOnly<AccountInfo>, P = CurrentProgram>
 where
     T: AccountData + BorshSerialize + BorshDeserialize,
     A: SingleAccount,
@@ -23,9 +27,9 @@ where
     #[deref]
     data: T,
     account: A,
-    pub _program: PhantomData<fn() -> P>,
+    _program: PhantomData<fn() -> P>,
 }
-impl<T, P, A> DerefMut for BorshAccount<T, P, A>
+impl<T, A, P> DerefMut for BorshAccount<T, A, P>
 where
     T: AccountData + BorshSerialize + BorshDeserialize,
     A: SingleAccount<Mutable = True>,
@@ -35,7 +39,7 @@ where
         &mut self.data
     }
 }
-impl<T, P, A> Accounts for BorshAccount<T, P, A>
+impl<T, A, P> Accounts for BorshAccount<T, A, P>
 where
     T: AccountData + BorshSerialize + BorshDeserialize,
     A: SingleAccount,
@@ -51,7 +55,7 @@ where
         A::to_account_infos(&self.account)
     }
 }
-unsafe impl<T, P, A> SingleAccount for BorshAccount<T, P, A>
+unsafe impl<T, A, P> SingleAccount for BorshAccount<T, A, P>
 where
     T: AccountData + BorshSerialize + BorshDeserialize,
     A: SingleAccount,
@@ -65,7 +69,7 @@ where
         A::account_info_ref(&self.account)
     }
 }
-impl<T, P, A, Arg> DecodeAccounts<Arg> for BorshAccount<T, P, A>
+impl<T, A, P, Arg> DecodeAccounts<Arg> for BorshAccount<T, A, P>
 where
     T: AccountData + BorshSerialize + BorshDeserialize,
     A: SingleAccount + DecodeAccounts<Arg>,
@@ -109,7 +113,20 @@ where
         }
     }
 }
-impl<T, P, A, Arg> CleanupAccounts<Arg> for BorshAccount<T, P, A>
+impl<T, A, P, Arg> ValidateAccounts<Arg> for BorshAccount<T, A, P>
+where
+    T: AccountData + BorshSerialize + BorshDeserialize,
+    A: SingleAccount + ValidateAccounts<Arg>,
+    P: GetProgramId,
+{
+    fn validate(&mut self, accounts_context: &mut AccountsContext, arg: Arg) -> AnchorResult {
+        if self.account.owner() != P::program_id(accounts_context) {
+            return Err(AnchorError::InvalidAccountOwner);
+        }
+        A::validate(&mut self.account, accounts_context, arg)
+    }
+}
+impl<T, A, P, Arg> CleanupAccounts<Arg> for BorshAccount<T, A, P>
 where
     T: AccountData + BorshSerialize + BorshDeserialize,
     A: SingleAccount + CleanupAccounts<Arg>,
@@ -125,5 +142,34 @@ where
         }
 
         A::cleanup(&mut self.account, accounts_context, arg)
+    }
+}
+impl<T, A, P, C> SupportsConstraint<C> for BorshAccount<T, A, P>
+where
+    T: AccountData + BorshSerialize + BorshDeserialize,
+    A: SingleAccount + SupportsConstraint<C>,
+    P: GetProgramId,
+{
+    #[inline]
+    fn early_validation(
+        &mut self,
+        constraint: &mut C,
+        context: &mut AccountsContext,
+    ) -> AnchorResult {
+        A::early_validation(&mut self.account, constraint, context)
+    }
+
+    #[inline]
+    fn late_validation(
+        &mut self,
+        constraint: &mut C,
+        context: &mut AccountsContext,
+    ) -> AnchorResult {
+        A::late_validation(&mut self.account, constraint, context)
+    }
+
+    #[inline]
+    fn cleanup(&mut self, constraint: &mut C, context: &mut AccountsContext) -> AnchorResult {
+        A::cleanup(&mut self.account, constraint, context)
     }
 }

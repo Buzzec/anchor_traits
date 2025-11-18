@@ -1,9 +1,6 @@
 use core::mem::{needs_drop, MaybeUninit};
 use core::ptr;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct EmptyField;
-
 pub fn try_map_array_init<I, O, E, const N: usize>(
     input: [I; N],
     mut mapper: impl FnMut(I) -> Result<O, E>,
